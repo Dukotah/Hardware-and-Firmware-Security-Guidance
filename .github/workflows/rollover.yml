@@ -1,0 +1,36 @@
+name: secureboot-rollover
+
+on:
+  push:
+    paths:
+      - "secureboot/rollover/**"
+      - ".github/workflows/rollover.yml"
+  pull_request:
+    paths:
+      - "secureboot/rollover/**"
+      - ".github/workflows/rollover.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Unit tests
+        working-directory: secureboot/rollover
+        run: python test_sbrollover.py -v
+      - name: Report on Microsoft update packages
+        working-directory: secureboot/rollover
+        run: |
+          python sbrollover.py --db fixtures/DBUpdate2024.bin
+          python sbrollover.py --dbx fixtures/DBXUpdate.bin --dbx-reference fixtures/dbx_info_msft_latest.json --arch x64 --json > report.json
+          python -c "import json; r = json.load(open('report.json')); assert r['variables']['dbx']['reference']['present'] == 443"
